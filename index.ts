@@ -1,44 +1,79 @@
 import { v4 as uuidv4 } from "uuid"
 
-// NOTE: This file's contents will be separated and structured in accordance with the web-rest-api/DDD-observer:ddd-structure project structure
+// NOTE: This file's contents will be separated and structured in accordance to the web-rest-api/DDD-observer:ddd-structure project structure
 //		 when the DDD concept is implemented.
 
 // To search file for tested silent bugs: search 'SILENT_BUG'
 
 /*********************************************************************************************************
-									Phase 2: Primitive Type Objects
+								Phase 3 & 4: Branded Types + Smart Contructors
 *********************************************************************************************************/
-console.log("=================  Phase1: Primitive Type Objects  =================")
+console.log("=================  Table  =================")
+
+// Branded types and 
+type TableId = string & { readonly __brand: unique symbol  };
+type SeatCount = number & { readonly __brand: unique symbol  };
+type TableStatus = "available" | "occupied" | "cleaning" | "out_of_service";
+
+
 // Object type definition
 type Table = {
-	id: string,
-	numOfSeats: number,
-	isReserved: boolean,
-	status: string
+	id: TableId,
+	numOfSeats: SeatCount,
+	isReserved: boolean,  // isReserved is not branded. T/F already conforms to any business rule.
+	status: TableStatus
 }
 
+// Smart Constructors (the only way to create branded types)
+
+const makeTableId = (id: string): TableId => {
+	// Business logic
+	const uuidRegex = /^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$/;
+	
+	// .test() to check matchability of input
+	if (uuidRegex.test(id)){
+		return id as TableId;
+	}
+
+	throw new Error("id does not conform to Regex syntax, TableId's business rule.");
+};
+
+const makeSeatCount = (numOfSeats: number): SeatCount => {
+	if (numOfSeats <= 0){
+		throw new Error("Table cannot be empty");
+	}
+	if (!Number.isInteger(numOfSeats)){
+		throw new Error("Number of tables must be a whole number.");
+	}
+	return numOfSeats as SeatCount;
+};
+
+// TableStatus does not need a contructor, as it already meets business expectation.
+
+// =======================================================================================================
+
 // Instances
-const facadeTableId: string = uuidv4();
+const facadeTableId: TableId = makeTableId(uuidv4());
 const facadeTable: Table = {
 	id: facadeTableId,
-	numOfSeats: 2,
+	numOfSeats: makeSeatCount(2),
 	isReserved: false,
 	status: "available"
 };
 
 const interiorTable: Table = {
-	id: uuidv4(),
-	numOfSeats: 4,
+	id: makeTableId(uuidv4()),
+	numOfSeats: makeSeatCount(4),
 	isReserved: false,
 	status: "available"
 };
 
-const loungeTableId: string = uuidv4();
+const loungeTableId: TableId = makeTableId(uuidv4());
 const loungeTable: Table = {
 	id: loungeTableId,
-	numOfSeats: 10,
+	numOfSeats: makeSeatCount(10),
 	isReserved: true,
-	status: "available"
+	status: "cleaning"
 };
 
 
@@ -60,42 +95,87 @@ const tableForFour = findTableForWalkIn(restaurantTables, 4);  // should return 
 console.log(tableForFour);
 
 /******************************
-	Exposing Silent Bug
+		Error Display
 *******************************/
 
-interiorTable.id = "available";
+//PHASE-2-TEST (uncomment to use)
+// interiorTable.numOfSeats = "asd";  // doesn't throw an error (SILENT_BUG)
 
-// Testing#2
-const newRestaurantTables = [facadeTable, interiorTable, loungeTable];
-const newTableForFour = findTableForWalkIn(newRestaurantTables, 4);  // { id: 'available', numOfSeats: 4, isReserved: false, status: 'available' } (SILENT_BUG)
+// Answering `Check your understanding`, Price and number are not the same type because the intersection (&) forces Price to require an extra exclusive __brand property, creating a structural difference that the compiler treats as a distinct, stricter type
 
-console.log(newTableForFour)
+const restaurantTables2 = [facadeTable, interiorTable, loungeTable];
+const tableForFour2 = findTableForWalkIn(restaurantTables2, 4);  // { id: 'available', numOfSeats: 4, isReserved: false, status: 'available' } (SILENT_BUG)
+
+console.log(`Phase-2-test:`, tableForFour2)
+
+//PHASE-3-TEST
+
+// Answering `Check your understanding`, Price and number are not the same type because the intersection (&) forces Price to require an extra exclusive __brand property, creating a structural difference that the compiler treats as a distinct, stricter type
+// facadeTable.numOfSeats = makeSeatCount("unknown")  // Error thrown
+
+const restaurantTables3 = [facadeTable, interiorTable, loungeTable];
+const tableForThree = findTableForWalkIn(restaurantTables3, 3);  // { id: 'available', numOfSeats: 4, isReserved: false, status: 'available' } (SILENT_BUG)
+
+console.log(`Phase-3-test:`, tableForThree)
+
+
 
 /*********************************************************************************************************
-									Phase 2.b: Addition of `Order` object type
+											`Order` object type
 *********************************************************************************************************/
-console.log("=================  Phase2.b: Orders  =================")
+console.log("=================  Orders  =================")
+
+type OrderId = string & { readonly __brand: unique symbol }
+type Price = number & { readonly __brand: unique symbol }
+type OrderStatus = "received" | "preparing" | "ready" | "done"
+
 type Order = {
-	id: string,
-	tableId: string,
-	totalAmount: number,
+	id: OrderId,
+	tableId: TableId,
+	totalAmount: Price,
 	isPaid: boolean,
-	status: string,
+	status: OrderStatus,
 }
 
 
+const makeOrderId = (id: string): OrderId => {
+	// Business logic
+	const uuidRegex = /^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$/;
+	
+	// .test() to check matchability of input
+	if (uuidRegex.test(id)){
+		return id as OrderId;
+	}
+
+	throw new Error("id does not conform to Regex syntax, OrderId's business rule.");
+};
+
+const makePrice = (price: number): Price => {
+	if (price <= 0){
+		throw new Error("Price must be positive.")
+	}
+	if (!Number.isFinite(price)){
+		throw new Error("Price must be a finite number.");
+	}
+	// Format as a 2-decimal float. Math.round is safest way
+	const roundedPrice = Math.round(price * 100) / 100;
+
+	return roundedPrice as Price;
+};
+
+
 const orderOne: Order = {
-	id: uuidv4(),
+	id: makeOrderId(uuidv4()),
 	tableId: facadeTableId,
-	totalAmount: 45.40,
+	totalAmount: makePrice(45.40),
 	isPaid: false,
 	status: "preparing",
 }
 
 const orderTwo: Order = {
-	id: uuidv4(),
+	id: makeOrderId(uuidv4()),
 	tableId: loungeTableId,
-	totalAmount: 7.90,
+	totalAmount: makePrice(7.90),
 	isPaid: true,
 	status: "done",
 }
@@ -112,17 +192,3 @@ const restaurantOrders = [orderOne, orderTwo];
 const unpaidTotal = getUnpaidTotal(restaurantOrders);  // should return 45.40
 
 console.log(unpaidTotal)
-
-/******************************
-	Exposing Silent Bug
-*******************************/
-
-orderTwo.isPaid = false;
-orderTwo.totalAmount = -97.20;
-
-// Testing#2
-const newRestaurantOrders = [orderOne, orderTwo];
-const newUnpaidTotal = getUnpaidTotal(newRestaurantOrders);  // -51.80 (SILENT_BUG)
-
-console.log(newUnpaidTotal)
-
