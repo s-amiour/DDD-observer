@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from "uuid"
 
-// NOTE: This file's contents will be separated and structured in accordance to the web-rest-api/DDD-observer:ddd-structure project structure
+// NOTE: This file's contents will be separated and structured in accordance with the web-rest-api/DDD-observer:ddd-structure project structure
 //		 when the DDD concept is implemented.
 
 // To search file for tested silent bugs: search 'SILENT_BUG'
@@ -125,3 +125,4 @@ const newRestaurantOrders = [orderOne, orderTwo];
 const newUnpaidTotal = getUnpaidTotal(newRestaurantOrders);  // -51.80 (SILENT_BUG)
 
 console.log(newUnpaidTotal)
+
