@@ -114,7 +114,7 @@ console.log(`Phase-2-test:`, tableForFour2)
 // facadeTable.numOfSeats = makeSeatCount("unknown")  // Error thrown
 
 const restaurantTables3 = [facadeTable, interiorTable, loungeTable];
-const tableForThree = findTableForWalkIn(restaurantTables3, 2);  // { id: 'available', numOfSeats: 4, isReserved: false, status: 'available' } (SILENT_BUG)
+const tableForThree = findTableForWalkIn(restaurantTables3, 3);  // { id: 'available', numOfSeats: 4, isReserved: false, status: 'available' } (SILENT_BUG)
 
 console.log(`Phase-3-test:`, tableForThree)
 
