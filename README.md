@@ -27,8 +27,14 @@
 ## Project Structure
 
 ```
-ex-01/
-  index.ts                      # CLI runner -- runs functions here
+/
+├── src/
+│   ├──
+├── docs/
+│   ├──
+│
+├── index.ts				   # CLI runner -- runs functions here
+└── README.md
 ```
 
 
@@ -79,7 +85,7 @@ type Price = number & { readonly __brand: unique symbol }
 
 function createPrice(amount: number): Price {
 	if (amount < 0) throw new Error("Price cannot be negative")
-	if (amount > 10_000) throw new Error("Price exceeds maximum")
+	if (amount > 10000) throw new Error("Price exceeds maximum")
 	return amount as Price
 }
 
