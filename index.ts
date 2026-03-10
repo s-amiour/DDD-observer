@@ -6,17 +6,15 @@ import { v4 as uuidv4 } from "uuid"
 // To search file for tested silent bugs: search 'SILENT_BUG'
 
 /*********************************************************************************************************
-								Phase 3 & 4: Branded Types + Smart Contructors
+										Phase 5: Value Object
 *********************************************************************************************************/
 console.log("=================  Table  =================")
 
-// Branded types and 
 type TableId = string & { readonly __brand: unique symbol  };
 type SeatCount = number & { readonly __brand: unique symbol  };
 type TableStatus = "available" | "occupied" | "cleaning" | "out_of_service";
 
 
-// Object type definition
 type Table = {
 	id: TableId,
 	numOfSeats: SeatCount,
@@ -24,13 +22,10 @@ type Table = {
 	status: TableStatus
 }
 
-// Smart Constructors (the only way to create branded types)
 
 const makeTableId = (id: string): TableId => {
-	// Business logic
 	const uuidRegex = /^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$/;
 	
-	// .test() to check matchability of input
 	if (uuidRegex.test(id)){
 		return id as TableId;
 	}
@@ -48,11 +43,9 @@ const makeSeatCount = (numOfSeats: number): SeatCount => {
 	return numOfSeats as SeatCount;
 };
 
-// TableStatus does not need a contructor, as it already meets business expectation.
 
 // =======================================================================================================
 
-// Instances
 const facadeTableId: TableId = makeTableId(uuidv4());
 const facadeTable: Table = {
 	id: facadeTableId,
@@ -77,7 +70,6 @@ const loungeTable: Table = {
 };
 
 
-// Factory (utility) function
 // Search for possible table for group of customers
 const findTableForWalkIn = (tables: Table[], groupSize: number): Table | undefined => {
 	return tables.find(table => 
@@ -94,36 +86,21 @@ const tableForFour = findTableForWalkIn(restaurantTables, 4);  // should return 
 
 console.log(tableForFour);
 
-/******************************
-		Error Display
-*******************************/
-
-//PHASE-2-TEST (uncomment to use)
-// interiorTable.numOfSeats = "asd";  // doesn't throw an error (SILENT_BUG)
-
-// Answering `Check your understanding`, Price and number are not the same type because the intersection (&) forces Price to require an extra exclusive __brand property, creating a structural difference that the compiler treats as a distinct, stricter type
-
-const restaurantTables2 = [facadeTable, interiorTable, loungeTable];
-const tableForFour2 = findTableForWalkIn(restaurantTables2, 4);  // { id: 'available', numOfSeats: 4, isReserved: false, status: 'available' } (SILENT_BUG)
-
-console.log(`Phase-2-test:`, tableForFour2)
-
-//PHASE-3-TEST
-
-// Answering `Check your understanding`, Price and number are not the same type because the intersection (&) forces Price to require an extra exclusive __brand property, creating a structural difference that the compiler treats as a distinct, stricter type
-// facadeTable.numOfSeats = makeSeatCount("unknown")  // Error thrown
-
-const restaurantTables3 = [facadeTable, interiorTable, loungeTable];
-const tableForThree = findTableForWalkIn(restaurantTables3, 3);  // { id: 'available', numOfSeats: 4, isReserved: false, status: 'available' } (SILENT_BUG)
-
-console.log(`Phase-3-test:`, tableForThree)
-
-
 
 /*********************************************************************************************************
 											`Order` object type
 *********************************************************************************************************/
 console.log("=================  Orders  =================")
+console.log("         ==  Value Object (Money)  ==        ")
+
+// Define related fields (reusing existing Price type)
+type Currency = "USD" | "EUR" | "GBP";
+
+// Define Value Object interface and make it immutable (readonly)
+type Money = {
+    readonly amount: Price;
+    readonly currency: Currency;
+};
 
 type OrderId = string & { readonly __brand: unique symbol }
 type Price = number & { readonly __brand: unique symbol }
@@ -132,17 +109,15 @@ type OrderStatus = "received" | "preparing" | "ready" | "done"
 type Order = {
 	id: OrderId,
 	tableId: TableId,
-	totalAmount: Price,
+	totalAmount: Money,
 	isPaid: boolean,
 	status: OrderStatus,
 }
 
 
 const makeOrderId = (id: string): OrderId => {
-	// Business logic
 	const uuidRegex = /^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$/;
 	
-	// .test() to check matchability of input
 	if (uuidRegex.test(id)){
 		return id as OrderId;
 	}
@@ -157,17 +132,36 @@ const makePrice = (price: number): Price => {
 	if (!Number.isFinite(price)){
 		throw new Error("Price must be a finite number.");
 	}
-	// Format as a 2-decimal float. Math.round is safest way
 	const roundedPrice = Math.round(price * 100) / 100;
 
 	return roundedPrice as Price;
+};
+
+// == Factory functions ==
+const makeMoney = (amount: number, currency: Currency) => {
+	const validatedPrice = makePrice(amount);
+
+	return {
+		amount: validatedPrice,
+		currency: currency
+	};
+};
+
+// Factory (utility) function
+const addMoney = (moneyA: Money, moneyB: Money): Money => {
+    if (moneyA.currency !== moneyB.currency) {
+        throw new Error(`Currency mismatch: Cannot add ${moneyA.currency} and ${moneyB.currency}`);
+    }
+    
+    // Return brand new Money object
+    return makeMoney(moneyA.amount + moneyB.amount, moneyA.currency);
 };
 
 
 const orderOne: Order = {
 	id: makeOrderId(uuidv4()),
 	tableId: facadeTableId,
-	totalAmount: makePrice(45.40),
+	totalAmount: makeMoney(45.40, "EUR"),
 	isPaid: false,
 	status: "preparing",
 }
@@ -175,7 +169,7 @@ const orderOne: Order = {
 const orderTwo: Order = {
 	id: makeOrderId(uuidv4()),
 	tableId: loungeTableId,
-	totalAmount: makePrice(7.90),
+	totalAmount: makeMoney(7.90, "GBP"),
 	isPaid: true,
 	status: "done",
 }
@@ -183,7 +177,7 @@ const orderTwo: Order = {
 const getUnpaidTotal = (orders: Order[]): number => {
 	return orders
 		.filter(order => !order.isPaid)
-		.reduce((sum, order) => sum + order.totalAmount, 0)  // noteToSelf: sum & order are just variables to hold a running value and the element, respectively.
+		.reduce((sum, order) => sum + order.totalAmount.amount, 0)  // noteToSelf: sum & order are just variables to hold a running value and the element, respectively.
 }
 
 
