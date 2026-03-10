@@ -186,3 +186,174 @@ const restaurantOrders = [orderOne, orderTwo];
 const unpaidTotal = getUnpaidTotal(restaurantOrders);  // should return 45.40
 
 console.log(unpaidTotal)
+
+
+
+/*********************************************************************************************************
+                         
+'lbvzPhases 6 & 7: Entities and The Observer Patter
+*********************************************************************************************************/
+console.log("\n=================  Phase 6 & 7: Entity & Observers  =================")
+
+// --- 7a
+// Define what an observer looks like (callback signature)
+type Observer<T> = (event: T) => void;
+
+// Define events entity can emit
+type OrderEvent = 
+    | { type: "OrderCreated", payload: { id: OrderId, tableId: TableId } }
+    | { type: "OrderPaid", payload: { id: OrderId, amountPaid: Money } }
+    | { type: "OrderCancelled", payload: { id: OrderId } };
+
+// Phase 6 & 7b: entity definition (Immutable with Observers)
+
+// We upgrade the Order type to an Entity that holds its own observers
+type OrderEntity = {
+    readonly id: OrderId;
+    readonly tableId: TableId;
+    readonly totalAmount: Money;
+    readonly isPaid: boolean;
+    readonly status: OrderStatus;
+    readonly observers: Observer<OrderEvent>[]; // 7b: Subscriber list
+}
+
+// ---------------------------------------------------------
+// Phase 6: Factory and State-Changing Functions
+// ---------------------------------------------------------
+
+// Creates the initial entity with a fresh ID
+const createOrder = (tableId: TableId, initialAmount: Money): OrderEntity => {
+    return {
+        id: makeOrderId(uuidv4()),
+        tableId: tableId ,
+        totalAmount: initialAmount,
+        isPaid: false,
+        status: "received",
+        observers: [] // Starts with no listeners
+    };
+};
+
+// 7c: Helper function to notify all subscribers
+const notifyObservers = (observers: Observer<OrderEvent>[], event: OrderEvent) => {
+    observers.forEach(observer => observer(event));
+};
+
+// 7b: Subscribe function (Returns a NEW entity with the observer added)
+const subscribeToOrder = (order: OrderEntity, observer: Observer<OrderEvent>): OrderEntity => {
+    return {
+        ...order,
+        observers: [...order.observers, observer]
+    };
+};
+
+// 7b: Unsubscribe function (Returns a NEW entity with the observer removed)
+const unsubscribeFromOrder = (order: OrderEntity, observer: Observer<OrderEvent>): OrderEntity => {
+    return {
+        ...order,
+        observers: order.observers.filter(obs => obs !== observer)
+    };
+};
+
+// Phase 6: State Changing Function - PAY ORDER
+const payOrder = (order: OrderEntity): OrderEntity => {
+    // 1. Enforce Invariants (Guard Clauses)
+    if (order.isPaid) {
+        throw new Error("Invariant Violation: Order is already paid.");
+    }
+    if (order.status === "done") {
+        throw new Error("Invariant Violation: Cannot pay a closed order.");
+    }
+
+    // 2. Return a NEW entity with updated state (Immutability)
+    const updatedOrder: OrderEntity = {
+        ...order,
+        isPaid: true,
+        status: "done"
+    };
+
+    // 3. Notify Observers (7c)
+    notifyObservers(updatedOrder.observers, {
+        type: "OrderPaid",
+        payload: { id: updatedOrder.id, amountPaid: updatedOrder.totalAmount }
+    });
+
+    return updatedOrder;
+};
+
+// Phase 6: State Changing Function - CANCEL ORDER
+const cancelOrder = (order: OrderEntity): OrderEntity => {
+    // 1. Enforce Invariants
+    if (order.isPaid) {
+        throw new Error("Invariant Violation: Cannot cancel an order that has already been paid.");
+    }
+
+    // 2. Return NEW entity
+    const updatedOrder: OrderEntity = {
+        ...order,
+        status: "done" // Or you could add "cancelled" to OrderStatus union
+    };
+
+    // 3. Notify Observers
+    notifyObservers(updatedOrder.observers, {
+        type: "OrderCancelled",
+        payload: { id: updatedOrder.id }
+    });
+
+    return updatedOrder;
+};
+
+// ---------------------------------------------------------
+// 7d. Wire it up and test it manually
+// ---------------------------------------------------------
+
+console.log("\n--- Starting Observer Test ---");
+
+// 1. Create the Entity
+let activeOrder = createOrder(facadeTableId, makeMoney(50.00, "USD"));
+
+// 2. Define Observer Functions
+const consoleLogger: Observer<OrderEvent> = (event) => {
+    console.log(`[LOGGER] Event recorded: ${event.type} for Order ${event.payload.id}`);
+};
+
+const emailService: Observer<OrderEvent> = (event) => {
+    if (event.type === "OrderPaid") {
+        console.log(`[EMAIL] Sending receipt for amount: ${event.payload.amountPaid.amount} ${event.payload.amountPaid.currency}`);
+    }
+};
+
+const uiUpdater: Observer<OrderEvent> = (event) => {
+    console.log(`[UI] Refreshing dashboard due to ${event.type}...`);
+};
+
+// 3. Subscribe them to the entity (Notice we reassign activeOrder because it returns a NEW object)
+activeOrder = subscribeToOrder(activeOrder, consoleLogger);
+activeOrder = subscribeToOrder(activeOrder, emailService);
+activeOrder = subscribeToOrder(activeOrder, uiUpdater);
+
+console.log("Observers subscribed. Attempting payment...");
+
+// 4. Trigger state change and confirm notifications
+// Expect: Logger, Email, and UI logs to fire.
+activeOrder = payOrder(activeOrder);
+
+console.log("\nAttempting to cancel a paid order (Testing Invariants)...");
+
+// 5. Test Invariant (Should throw error)
+try {
+    activeOrder = cancelOrder(activeOrder);
+} catch (error) {
+    console.error(`[BLOCKED] ${(error as Error).message}`);
+}
+
+console.log("\nUnsubscribing UI Updater and trying a new order...");
+
+// 6. Test Unsubscribe
+let secondOrder = createOrder(loungeTableId, makeMoney(15.00, "EUR"));
+secondOrder = subscribeToOrder(secondOrder, consoleLogger);
+secondOrder = subscribeToOrder(secondOrder, uiUpdater);
+
+secondOrder = unsubscribeFromOrder(secondOrder, uiUpdater); // Remove UI Updater
+
+// Expect: ONLY Logger to fire. UI should remain silent.
+secondOrder = cancelOrder(secondOrder);
